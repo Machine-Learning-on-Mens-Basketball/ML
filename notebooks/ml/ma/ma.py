@@ -12,6 +12,7 @@ __status__ = "Development"
 
 import os
 import pandas as pd
+import datetime
 
 from tqdm import tqdm
 
@@ -35,7 +36,7 @@ def get_training_data(span, identifiers, team_stats_dir):
 
     print("Building training data...")
     team_mas = compute_ma(span, identifiers, team_stats_dir)
-    return merge_ma(team_mas, identifiers)
+    return add_tournament_flag(merge_ma(team_mas, identifiers))
 
 
 def compute_ma(span, identifiers, team_stats_dir):
@@ -153,3 +154,45 @@ def merge_ma(teams_mas, identifiers):
         .sort_values(by="date")
         .reset_index(drop=True)
     )
+
+
+def add_tournament_flag(df):
+    """Inserts a boolean value which indicates whether or not the game that was played
+    was a tournament game.
+
+    Args:
+        df (pandas.DataFrame): dataframe of the games
+
+    Returns:
+        pandas.DataFrame: DataFrame with an extra column indicating whether or not
+            the game is a tournament game.
+    """
+
+    # Hardcoded in dates for the NCAA tournament
+    dates = [
+        (datetime.datetime(2010, 3, 16), datetime.datetime(2010, 4, 5)),
+        (datetime.datetime(2011, 3, 15), datetime.datetime(2011, 4, 4)),
+        (datetime.datetime(2012, 3, 13), datetime.datetime(2012, 4, 2)),
+        (datetime.datetime(2013, 3, 19), datetime.datetime(2013, 4, 8)),
+        (datetime.datetime(2014, 3, 18), datetime.datetime(2014, 4, 7)),
+        (datetime.datetime(2015, 3, 17), datetime.datetime(2015, 4, 6)),
+        (datetime.datetime(2016, 3, 15), datetime.datetime(2016, 4, 4)),
+        (datetime.datetime(2017, 3, 14), datetime.datetime(2017, 4, 3)),
+        (datetime.datetime(2018, 3, 13), datetime.datetime(2018, 4, 2)),
+        (datetime.datetime(2019, 3, 19), datetime.datetime(2019, 4, 8)),
+    ]
+
+    # Function to determine if specific game was in the NCAA tournament
+    def is_tournament_game(row, dates=dates):
+        for start, end in dates:
+            if start <= row["date"] <= end:
+                return True
+        return False
+
+    df_copy = df.copy()
+    df_copy["date"] = pd.to_datetime(df_copy["date"])
+    df_copy["is_tournament_game"] = df_copy.apply(
+        lambda row: is_tournament_game(row), axis=1
+    )
+
+    return df_copy
